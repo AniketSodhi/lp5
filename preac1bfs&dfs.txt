@@ -1,0 +1,125 @@
+Design and implement Parallel Breadth First Search and Depth First Search based on existing algorithm using OpenMP. Use a Tree or an undirected graph for BFS and DFS.
+
+#include <iostream>
+#include <vector>
+#include <omp.h>
+
+using namespace std;
+
+// ---------------- PARALLEL DFS ----------------
+
+void parallelDFS(int node, vector<vector<int>> &graph, vector<bool> &visitedDFS) {
+
+    bool alreadyVisited;
+
+    #pragma omp critical
+    {
+        alreadyVisited = visitedDFS[node];
+
+        if (!visitedDFS[node]) {
+            visitedDFS[node] = true;
+            cout << node << " ";
+        }
+    }
+
+    if (alreadyVisited)
+        return;
+
+    #pragma omp parallel for
+    for (int i = 0; i < graph[node].size(); i++) {
+        parallelDFS(graph[node][i], graph, visitedDFS);
+    }
+}
+
+// ---------------- PARALLEL BFS ----------------
+
+void parallelBFS(int start, vector<vector<int>> &graph, int n) {
+
+    vector<bool> visitedBFS(n, false);
+
+    vector<int> current_level, next_level;
+
+    current_level.push_back(start);
+    visitedBFS[start] = true;
+
+    while (!current_level.empty()) {
+
+        next_level.clear();
+
+        #pragma omp parallel for
+        for (int i = 0; i < current_level.size(); i++) {
+
+            int node = current_level[i];
+
+            #pragma omp critical
+            cout << node << " ";
+
+            for (int nbr : graph[node]) {
+
+                #pragma omp critical
+                {
+                    if (!visitedBFS[nbr]) {
+                        visitedBFS[nbr] = true;
+                        next_level.push_back(nbr);
+                    }
+                }
+            }
+        }
+
+        current_level = next_level;
+    }
+}
+
+// ---------------- MAIN FUNCTION ----------------
+
+int main() {
+
+    int n, e;
+
+    cout << "Enter number of nodes and edges: ";
+    cin >> n >> e;
+
+    vector<vector<int>> graph(n);
+
+    cout << "Enter edges (u v):\n";
+
+    for (int i = 0; i < e; i++) {
+
+        int u, v;
+        cin >> u >> v;
+
+        graph[u].push_back(v);
+        graph[v].push_back(u);
+    }
+
+    int start;
+
+    cout << "Enter starting node: ";
+    cin >> start;
+
+    // -------- DFS --------
+
+    vector<bool> visitedDFS(n, false);
+
+    cout << "\nParallel DFS Traversal: ";
+    parallelDFS(start, graph, visitedDFS);
+
+    // -------- BFS --------
+
+    cout << "\nParallel BFS Traversal: ";
+    parallelBFS(start, graph, n);
+
+    return 0;
+}
+
+Enter number of nodes and edges: 5 4
+Enter edges (u v):
+Enter edges (u v):
+0 1
+0 2
+1 3
+1 4
+Enter starting node: 0
+
+Parallel DFS Traversal: 0 1 3 4 2 
+Parallel BFS Traversal: 0 1 2 3 4 
